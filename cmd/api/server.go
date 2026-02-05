@@ -28,6 +28,14 @@ func teachersHandler(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSuffix(path, "/")
 	fmt.Println("The ID is:", userID)
 
+	// query params -> used in GET req, to send data to server such as filters or search criteria
+	// teachers/?key=value&sortby=email&sortorder=ASC -> in key value format
+	fmt.Println(r.URL.Query())
+	queryParams := r.URL.Query()
+	sortyby := queryParams.Get("sortby")
+	key := queryParams.Get("key")
+	fmt.Printf("Sortby: %v, Key: %v\n", sortyby, key)
+
 	switch r.Method {
 	case http.MethodGet:
 		_, err := w.Write([]byte("GET: Teachers Route"))
