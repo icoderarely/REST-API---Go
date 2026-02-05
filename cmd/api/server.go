@@ -1,10 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 )
+
+type User struct {
+	Name  string `json:"name"`
+	Age   int    `json:"age"`
+	Major string `json:"major"`
+}
 
 func main() {
 	port := ":3000"
@@ -39,7 +47,37 @@ func main() {
 				log.Fatal("Error writing to server:", err)
 			}
 		case http.MethodPost:
-			_, err := w.Write([]byte("POST: Students Route"))
+			// parse form data (necessary for x-www-form-urlencoded) -> returns a map, with values in slice
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "Error parsing form", http.StatusBadRequest)
+				return
+			}
+
+			fmt.Println("Form:", r.Form)
+			// extract these values -> prepare response data
+			response := make(map[string]interface{})
+			for key, value := range r.Form {
+				response[key] = value[0] // value[0] if we know we are getting only one value in form
+			}
+			fmt.Println("Response Map:", response)
+
+			// RAW body
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				return
+			}
+			defer r.Body.Close()
+
+			fmt.Println("RAW Body:", string(body))
+
+			// If you expect json data, then unmarshal it
+			var userInstance User
+			if err = json.Unmarshal(body, &userInstance); err != nil {
+				return
+			}
+			fmt.Println(userInstance)
+
+			_, err = w.Write([]byte("POST: Students Route"))
 			if err != nil {
 				log.Fatal("Error writing to server:", err)
 			}
