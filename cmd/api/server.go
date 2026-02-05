@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type User struct {
@@ -22,6 +23,11 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 func teachersHandler(w http.ResponseWriter, r *http.Request) {
 	// teachers/{id} - path params
+	fmt.Println(r.URL.Path)
+	path := strings.TrimPrefix(r.URL.Path, "/teachers/")
+	userID := strings.TrimSuffix(path, "/")
+	fmt.Println("The ID is:", userID)
+
 	switch r.Method {
 	case http.MethodGet:
 		_, err := w.Write([]byte("GET: Teachers Route"))
@@ -43,10 +49,6 @@ func teachersHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal("Error writing to server:", err)
 		}
-	}
-	_, err := w.Write([]byte("Hello Teachers Route"))
-	if err != nil {
-		log.Fatal("Error writing to server:", err)
 	}
 }
 
@@ -113,11 +115,11 @@ func main() {
 
 	http.HandleFunc("/", rootHandler)
 
-	http.HandleFunc("/teachers", teachersHandler)
+	http.HandleFunc("/teachers/", teachersHandler)
 
-	http.HandleFunc("/students", studentsHandler)
+	http.HandleFunc("/students/", studentsHandler)
 
-	http.HandleFunc("/execs", execsHandler)
+	http.HandleFunc("/execs/", execsHandler)
 
 	fmt.Println("Server is running on port:", port[1:])
 
