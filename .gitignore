@@ -1,0 +1,5 @@
+# TLS / HTTPS
+*.key
+*.crt
+*.pem
+*.cnf

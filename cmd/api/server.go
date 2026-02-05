@@ -1,10 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 )
 
 type User struct {
@@ -22,20 +22,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func teachersHandler(w http.ResponseWriter, r *http.Request) {
-	// teachers/{id} - path params
-	fmt.Println(r.URL.Path)
-	path := strings.TrimPrefix(r.URL.Path, "/teachers/")
-	userID := strings.TrimSuffix(path, "/")
-	fmt.Println("The ID is:", userID)
-
-	// query params -> used in GET req, to send data to server such as filters or search criteria
-	// teachers/?key=value&sortby=email&sortorder=ASC -> in key value format
-	fmt.Println(r.URL.Query())
-	queryParams := r.URL.Query()
-	sortyby := queryParams.Get("sortby")
-	key := queryParams.Get("key")
-	fmt.Printf("Sortby: %v, Key: %v\n", sortyby, key)
-
 	switch r.Method {
 	case http.MethodGet:
 		_, err := w.Write([]byte("GET: Teachers Route"))
@@ -121,17 +107,33 @@ func studentsHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := ":3000"
 
-	http.HandleFunc("/", rootHandler)
+	cert := "cert.pem"
+	key := "key.pem"
 
-	http.HandleFunc("/teachers/", teachersHandler)
+	mux := http.NewServeMux()
 
-	http.HandleFunc("/students/", studentsHandler)
+	mux.HandleFunc("/", rootHandler)
 
-	http.HandleFunc("/execs/", execsHandler)
+	mux.HandleFunc("/teachers/", teachersHandler)
+
+	mux.HandleFunc("/students/", studentsHandler)
+
+	mux.HandleFunc("/execs/", execsHandler)
+
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	// create custom server
+	server := &http.Server{
+		Addr:      port,
+		Handler:   mux,
+		TLSConfig: tlsConfig,
+	}
 
 	fmt.Println("Server is running on port:", port[1:])
 
-	if err := http.ListenAndServe(port, nil); err != nil {
+	if err := server.ListenAndServeTLS(cert, key); err != nil {
 		log.Fatal("Error handling the server", err)
 	}
 }
