@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"restapi/internal/api/middlewares"
+	mx "restapi/internal/api/middlewares"
 )
 
 type User struct {
@@ -71,10 +71,10 @@ func execsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatal("Error writing to server:", err)
 		}
 	}
-	_, err := w.Write([]byte("Hello Execs Route"))
-	if err != nil {
-		log.Fatal("Error writing to server:", err)
-	}
+	// _, err := w.Write([]byte("Hello Execs Route"))
+	// if err != nil {
+	// 	log.Fatal("Error writing to server:", err)
+	// }
 }
 
 func studentsHandler(w http.ResponseWriter, r *http.Request) {
@@ -128,8 +128,10 @@ func main() {
 
 	// create custom server
 	server := &http.Server{
-		Addr:      port,
-		Handler:   middlewares.SecurityHeaders(mux),
+		Addr: port,
+		// Handler:   middlewares.SecurityHeaders(mux),
+		// Handler:   middlewares.Cors(mux),
+		Handler:   mx.SecurityHeaders(mx.Cors(mux)),
 		TLSConfig: tlsConfig,
 	}
 

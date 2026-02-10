@@ -26,13 +26,6 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// Permissions Policy - prevents unauthorized access to browser features
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=(), payment=(), usb=(), interest-cohort=()")
 
-		// CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")                                                              // Prevents unauthorized cross-origin requests; controls which origins can access resources
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")                         // Restricts allowed HTTP methods; prevents unauthorized operations
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin") // Controls allowed request headers; prevents header injection attacks
-		w.Header().Set("Access-Control-Allow-Credentials", "true")                                                      // Controls credential sharing; manages authentication in cross-origin requests
-		w.Header().Set("Access-Control-Max-Age", "86400")                                                               // Reduces preflight requests; improves performance while maintaining security
-
 		// Cross-Origin policies
 		w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp") // Prevents loading cross-origin resources without explicit permission
 		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")    // Isolates browsing context group; prevents cross-origin attacks
