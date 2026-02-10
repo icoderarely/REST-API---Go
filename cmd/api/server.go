@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"restapi/internal/api/middlewares"
 )
 
 type User struct {
@@ -127,7 +129,7 @@ func main() {
 	// create custom server
 	server := &http.Server{
 		Addr:      port,
-		Handler:   mux,
+		Handler:   middlewares.SecurityHeaders(mux),
 		TLSConfig: tlsConfig,
 	}
 
