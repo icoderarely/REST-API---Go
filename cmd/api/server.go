@@ -129,12 +129,19 @@ func main() {
 
 	rl := mw.NewRateLimiter(5, time.Minute)
 
+	hppOptions := mw.HPPOptions{
+		CheckQuery:                  true,
+		CheckBody:                   true,
+		CheckBodyOnlyForContentType: "applicaton/x-www-form-urlencode",
+		Whitelist:                   []string{"sortBy", "sortOrder", "name", "age", "class"},
+	}
+
 	// create custom server
 	server := &http.Server{
 		Addr: port,
 		// Handler:   middlewares.SecurityHeaders(mux),
 		// Handler:   middlewares.Cors(mux),
-		Handler:   rl.Middleware(mw.Compression(mw.ResponseTimeMiddleware(mw.SecurityHeaders(mw.Cors(mux))))),
+		Handler:   mw.Hpp(hppOptions)(rl.Middleware(mw.Compression(mw.ResponseTimeMiddleware(mw.SecurityHeaders(mw.Cors(mux)))))),
 		TLSConfig: tlsConfig,
 	}
 
