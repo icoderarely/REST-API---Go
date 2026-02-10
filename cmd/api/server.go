@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	mx "restapi/internal/api/middlewares"
+	mw "restapi/internal/api/middlewares"
 )
 
 type User struct {
@@ -131,7 +131,7 @@ func main() {
 		Addr: port,
 		// Handler:   middlewares.SecurityHeaders(mux),
 		// Handler:   middlewares.Cors(mux),
-		Handler:   mx.SecurityHeaders(mx.Cors(mux)),
+		Handler:   mw.ResponseTimeMiddleware(mw.SecurityHeaders(mw.Cors(mux))),
 		TLSConfig: tlsConfig,
 	}
 
