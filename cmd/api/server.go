@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	mw "restapi/internal/api/middlewares"
 )
@@ -127,14 +126,14 @@ func main() {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	rl := mw.NewRateLimiter(5, time.Minute)
+	// rl := mw.NewRateLimiter(5, time.Minute)
 
-	hppOptions := mw.HPPOptions{
-		CheckQuery:                  true,
-		CheckBody:                   true,
-		CheckBodyOnlyForContentType: "applicaton/x-www-form-urlencode",
-		Whitelist:                   []string{"sortBy", "sortOrder", "name", "age", "class"},
-	}
+	// hppOptions := mw.HPPOptions{
+	// 	CheckQuery:                  true,
+	// 	CheckBody:                   true,
+	// 	CheckBodyOnlyForContentType: "applicaton/x-www-form-urlencode",
+	// 	Whitelist:                   []string{"sortBy", "sortOrder", "name", "age", "class"},
+	// }
 
 	// proper logical and efficient order of middlewares
 	// secureMux := mw.Cors(rl.Middleware(mw.ResponseTimeMiddleware(mw.SecurityHeaders(mw.Compression(mw.Hpp(hppOptions)(mux))))))
@@ -159,11 +158,11 @@ func main() {
 }
 
 // Middleware is a function that wraps http.Handler with additional functionality
-type Middleware func(http.Handler) http.Handler
+// type Middleware func(http.Handler) http.Handler
 
-func applyMiddlewares(handler http.Handler, middlewares ...Middleware) http.Handler {
-	for _, middleware := range middlewares {
-		handler = middleware(handler)
-	}
-	return handler
-}
+// func applyMiddlewares(handler http.Handler, middlewares ...Middleware) http.Handler {
+// 	for _, middleware := range middlewares {
+// 		handler = middleware(handler)
+// 	}
+// 	return handler
+// }
