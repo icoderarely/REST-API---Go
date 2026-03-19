@@ -1,5 +1,78 @@
-# TLS / HTTPS
+# =========================
+# ENV / SECRETS
+# =========================
+.env
+.env.*
+*.env
+
+# =========================
+# DATABASE
+# =========================
+*.sql
+*.sqlite
+*.db
+*.db-journal
+
+# MariaDB / MySQL local files (if any)
+*.frm
+*.ibd
+*.myd
+*.myi
+
+# =========================
+# LOGS
+# =========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# NODE (if using Node backend)
+# =========================
+node_modules/
+dist/
+build/
+coverage/
+
+# =========================
+# PYTHON (if applicable)
+# =========================
+__pycache__/
+*.pyc
+venv/
+.envrc
+
+# =========================
+# OS FILES
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / EDITOR
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# DOCKER (optional)
+# =========================
+docker-compose.override.yml
+
+# =========================
+# TLS / HTTPS (you already had)
+# =========================
 *.key
 *.crt
 *.pem
 *.cnf
+
+# =========================
+# MISC
+# =========================
+*.bak
+*.tmp
