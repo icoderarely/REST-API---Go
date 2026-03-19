@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 
 	mw "restapi/internal/api/middlewares"
 )
@@ -47,25 +49,55 @@ func init() {
 		Class:     "10A",
 		Subject:   "Algebra",
 	}
+	nextID++
+	teachers[nextID] = Teacher{
+		ID:        nextID,
+		FirstName: "Jane",
+		LastName:  "Doe",
+		Class:     "113",
+		Subject:   "Computer",
+	}
 }
 
 func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
-	teacherList := make([]Teacher, 0, len(teachers))
-	for _, teacher := range teachers {
-		teacherList = append(teacherList, teacher)
-	}
-	response := struct {
-		Status string    `json:"status"`
-		Count  int       `json:"count"`
-		Data   []Teacher `json:"data"`
-	}{
-		Status: "success",
-		Count:  len(teachers),
-		Data:   teacherList,
-	}
+	path := strings.TrimPrefix(r.URL.Path, "/teachers/")
+	idStr := strings.TrimSuffix(path, "/")
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	fname := r.URL.Query().Get("first_name")
+	lname := r.URL.Query().Get("last_name")
+
+	teacherList := make([]Teacher, 0, len(teachers))
+
+	if idStr == "" {
+		for _, teacher := range teachers {
+			// filter based on first_name/last_name query param
+			if (fname == "" || teacher.FirstName == fname) && (lname == "" || teacher.LastName == lname) {
+				teacherList = append(teacherList, teacher)
+			}
+		}
+		response := struct {
+			Status string    `json:"status"`
+			Count  int       `json:"count"`
+			Data   []Teacher `json:"data"`
+		}{
+			Status: "success",
+			Count:  len(teacherList),
+			Data:   teacherList,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	} else {
+		id, _ := strconv.Atoi(idStr)
+		teacher, exists := teachers[id]
+
+		if !exists {
+			http.Error(w, "ID not found", http.StatusNotFound)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(teacher)
+	}
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
