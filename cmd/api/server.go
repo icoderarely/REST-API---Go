@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	mw "restapi/internal/api/middlewares"
 )
@@ -19,17 +20,17 @@ type User struct {
 }
 
 type Teacher struct {
-	ID        int
-	FirstName string
-	LastName  string
-	Class     string
-	Subject   string
+	ID        int    `json:"id,omitempty"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Class     string `json:"class,omitempty"`
+	Subject   string `json:"subject,omitempty"`
 }
 
 var (
 	teachers = make(map[int]Teacher)
-	// mutex    = &sync.Mutex{}
-	nextID = 1
+	mutex    = &sync.Mutex{}
+	nextID   = 1
 )
 
 // initialize some data
@@ -57,6 +58,7 @@ func init() {
 		Class:     "113",
 		Subject:   "Computer",
 	}
+	nextID++
 }
 
 func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +102,37 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var newTeachers []Teacher
+	if err := json.NewDecoder(r.Body).Decode(&newTeachers); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	}
+
+	addedTeachers := make([]Teacher, len(newTeachers))
+	for i, newTeacher := range newTeachers {
+		newTeacher.ID = nextID
+		teachers[nextID] = newTeacher
+		addedTeachers[i] = newTeacher
+		nextID++
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	resp := struct {
+		Status string    `json:"status"`
+		Count  int       `json:"count"`
+		Data   []Teacher `json:"data"`
+	}{
+		Status: "success",
+		Count:  len(addedTeachers),
+		Data:   addedTeachers,
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	// fmt.Fprintf(w, "Hello Root Route")
 	_, err := w.Write([]byte("Hello Root Route"))
@@ -111,17 +144,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func teachersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		// call get method handler function
 		getTeachersHandler(w, r)
-	// _, err := w.Write([]byte("GET: Teachers Route"))
-	// if err != nil {
-	// 	log.Fatal("Error writing to server:", err)
-	// }
 	case http.MethodPost:
-		_, err := w.Write([]byte("POST: Teachers Route"))
-		if err != nil {
-			log.Fatal("Error writing to server:", err)
-		}
+		addTeacherHandler(w, r)
 	case http.MethodPut:
 		_, err := w.Write([]byte("PUT: Teachers Route"))
 		if err != nil {
