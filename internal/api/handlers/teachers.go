@@ -14,15 +14,13 @@ import (
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-var (
-	filterableTeacherFields = map[string]string{
-		"first_name": "first_name",
-		"last_name":  "last_name",
-		"email":      "email",
-		"class":      "class",
-		"subject":    "subject",
-	}
-)
+var filterableTeacherFields = map[string]string{
+	"first_name": "first_name",
+	"last_name":  "last_name",
+	"email":      "email",
+	"class":      "class",
+	"subject":    "subject",
+}
 
 func getIDParam(r *http.Request) (int, error) {
 	return strconv.Atoi(r.PathValue("id"))

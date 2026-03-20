@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"restapi/internal/models"
@@ -75,7 +76,12 @@ func InsertTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?, ?, ?, ?, ?)")
+	query := GenerateInsertQuery(models.Teacher{})
+	if query == "" {
+		return nil, utils.ErrorHandler(errors.New("invalid insert query"), "unable to build teacher insert query")
+	}
+
+	stmt, err := db.Prepare(query)
 	if err != nil {
 		return nil, utils.ErrorHandler(err, "unable to prepare teacher insert statement")
 	}
@@ -83,7 +89,8 @@ func InsertTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
 
 	inserted := make([]models.Teacher, 0, len(teachers))
 	for _, t := range teachers {
-		res, err := stmt.Exec(t.FirstName, t.LastName, t.Email, t.Class, t.Subject)
+		values := GenerateStructValues(t)
+		res, err := stmt.Exec(values...)
 		if err != nil {
 			return nil, utils.ErrorHandler(err, "unable to execute teacher insert")
 		}
@@ -163,4 +170,78 @@ func DeleteTeacher(id int) error {
 		return ErrTeacherNotFound
 	}
 	return nil
+}
+
+// GenerateInsertQuery builds an INSERT statement using json tags as column names.
+func GenerateInsertQuery(model interface{}) string {
+	typ := indirectType(model)
+	if typ == nil || typ.Kind() != reflect.Struct {
+		return ""
+	}
+	columns := make([]string, 0, typ.NumField())
+	placeholders := make([]string, 0, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		column := columnName(field)
+		if column == "" || column == "id" {
+			continue
+		}
+		columns = append(columns, column)
+		placeholders = append(placeholders, "?")
+	}
+	if len(columns) == 0 {
+		return ""
+	}
+	table := strings.ToLower(typ.Name()) + "s"
+	return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+}
+
+// GenerateStructValues returns struct field values aligned with GenerateInsertQuery order.
+func GenerateStructValues(model interface{}) []interface{} {
+	val := reflect.ValueOf(model)
+	if !val.IsValid() {
+		return nil
+	}
+	for val.Kind() == reflect.Pointer {
+		if val.IsNil() {
+			return nil
+		}
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return nil
+	}
+	typ := val.Type()
+	values := make([]interface{}, 0, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		column := columnName(field)
+		if column == "" || column == "id" {
+			continue
+		}
+		values = append(values, val.Field(i).Interface())
+	}
+	return values
+}
+
+func columnName(field reflect.StructField) string {
+	if tag := field.Tag.Get("json"); tag != "" {
+		parts := strings.Split(tag, ",")
+		name := parts[0]
+		if name != "" && name != "-" {
+			return name
+		}
+	}
+	return strings.ToLower(field.Name)
+}
+
+func indirectType(model interface{}) reflect.Type {
+	typ := reflect.TypeOf(model)
+	if typ == nil {
+		return nil
+	}
+	for typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	return typ
 }
