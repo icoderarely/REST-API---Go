@@ -185,6 +185,10 @@ func AddTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func PatchTeachersHandler(w http.ResponseWriter, r *http.Request) {}
+
+func DeleteTeachersHandler(w http.ResponseWriter, r *http.Request) {}
+
 // ─── Single Resource Handlers (with ID) ──────────────────────────────────────
 
 // GET /teachers/{id}
