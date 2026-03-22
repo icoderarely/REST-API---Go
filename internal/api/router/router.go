@@ -13,6 +13,7 @@ func Router() *http.ServeMux {
 
 	registerTeacherRoutes(mux)
 	registerStudentRoutes(mux)
+	registerExecsRoutes(mux)
 
 	// Executives handler
 	mux.HandleFunc("/execs/", handlers.ExecsHandler)
