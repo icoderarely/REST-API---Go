@@ -164,3 +164,26 @@ func DeleteStudent(id int) error {
 	}
 	return nil
 }
+
+// CountStudents returns the total number of students matching filters.
+func CountStudents(filters map[string]string) (int, error) {
+	db, err := ConnectDB()
+	if err != nil {
+		return 0, utils.ErrorHandler(err, "unable to connect counting students to database")
+	}
+	defer db.Close()
+
+	query := "SELECT COUNT(*) FROM students WHERE 1=1"
+	args := make([]interface{}, 0, len(filters))
+	for field, value := range filters {
+		query += fmt.Sprintf(" AND %s = ?", field)
+		args = append(args, value)
+	}
+
+	var count int
+	if err := db.QueryRow(query, args...).Scan(&count); err != nil {
+		return 0, utils.ErrorHandler(err, "unable to count students")
+	}
+
+	return count, nil
+}

@@ -242,3 +242,99 @@ func DeleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		ID:     id,
 	})
 }
+
+// GET /teachers/{id}/students
+func GetStudentsFromTeachersHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := getIDParam(r)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	teacher, err := sqlconnect.GetTeacherByID(id)
+	if errors.Is(err, sqlconnect.ErrTeacherNotFound) {
+		http.Error(w, "Teacher not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Unable to retrieve teacher", http.StatusInternalServerError)
+		return
+	}
+
+	if teacher.Class == "" {
+		respondStudentsList(w, id, teacher.Class, []models.Student{})
+		return
+	}
+
+	studentList, err := sqlconnect.ListStudents(map[string]string{"class": teacher.Class}, nil)
+	if err != nil {
+		http.Error(w, "Unable to load students for teacher", http.StatusInternalServerError)
+		return
+	}
+
+	respondStudentsList(w, id, teacher.Class, studentList)
+}
+
+// GET /teachers/{id}/studentcount
+func GetStudentCountHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := getIDParam(r)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	teacher, err := sqlconnect.GetTeacherByID(id)
+	if errors.Is(err, sqlconnect.ErrTeacherNotFound) {
+		http.Error(w, "Teacher not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Unable to retrieve teacher", http.StatusInternalServerError)
+		return
+	}
+
+	if teacher.Class == "" {
+		respondStudentCount(w, id, teacher.Class, 0)
+		return
+	}
+
+	filters := map[string]string{"class": teacher.Class}
+	count, err := sqlconnect.CountStudents(filters)
+	if err != nil {
+		http.Error(w, "Unable to calculate student count", http.StatusInternalServerError)
+		return
+	}
+
+	respondStudentCount(w, id, teacher.Class, count)
+}
+
+func respondStudentsList(w http.ResponseWriter, teacherID int, class string, students []models.Student) {
+	respondWithTeacherMeta(w, teacherID, class, struct {
+		Count int              `json:"count"`
+		Data  []models.Student `json:"data"`
+	}{
+		Count: len(students),
+		Data:  students,
+	})
+}
+
+func respondStudentCount(w http.ResponseWriter, teacherID int, class string, count int) {
+	respondWithTeacherMeta(w, teacherID, class, struct {
+		Count int `json:"count"`
+	}{
+		Count: count,
+	})
+}
+
+func respondWithTeacherMeta[T any](w http.ResponseWriter, teacherID int, class string, payload T) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Status    string `json:"status"`
+		TeacherID int    `json:"teacher_id"`
+		Class     string `json:"class"`
+		Data      T      `json:"data"`
+	}{
+		Status:    "success",
+		TeacherID: teacherID,
+		Class:     class,
+		Data:      payload,
+	})
+}
