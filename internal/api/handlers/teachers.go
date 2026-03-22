@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"restapi/internal/models"
 	"restapi/internal/repository/sqlconnect"
@@ -44,23 +43,6 @@ func buildTeacherFilters(r *http.Request) map[string]string {
 	return filters
 }
 
-func buildSortOptions(r *http.Request) []sqlconnect.SortOption {
-	sortParams := r.URL.Query()["sortBy"]
-	sorts := make([]sqlconnect.SortOption, 0, len(sortParams))
-	for _, param := range sortParams {
-		parts := strings.Split(param, ":")
-		if len(parts) != 2 {
-			continue
-		}
-		field, order := parts[0], parts[1]
-		if !isValidSortField(field) || !isValidSortOrder(order) {
-			continue
-		}
-		sorts = append(sorts, sqlconnect.SortOption{Field: field, Order: order})
-	}
-	return sorts
-}
-
 func applyTeacherUpdates(teacher *models.Teacher, updates map[string]interface{}) error {
 	setters := map[string]func(*models.Teacher, string){
 		"first_name": func(t *models.Teacher, v string) { t.FirstName = v },
@@ -87,7 +69,7 @@ func applyTeacherUpdates(teacher *models.Teacher, updates map[string]interface{}
 
 // GET /teachers/
 func GetTeachersHandler(w http.ResponseWriter, r *http.Request) {
-	teacherList, err := sqlconnect.ListTeachers(buildTeacherFilters(r), buildSortOptions(r))
+	teacherList, err := sqlconnect.ListTeachers(buildTeacherFilters(r), sqlconnect.BuildSortOptions(r, filterableTeacherFields))
 	if err != nil {
 		http.Error(w, "Unable to load teachers", http.StatusInternalServerError)
 		return

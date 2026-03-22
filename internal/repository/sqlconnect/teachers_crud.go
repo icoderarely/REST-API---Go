@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 
@@ -18,6 +19,24 @@ var ErrTeacherNotFound = errors.New("teacher not found")
 type SortOption struct {
 	Field string
 	Order string
+}
+
+// BuildSortOptions parses sort query parameters using the provided field map.
+func BuildSortOptions(r *http.Request, allowedFields map[string]string) []SortOption {
+	sortParams := r.URL.Query()["sortBy"]
+	sorts := make([]SortOption, 0, len(sortParams))
+	for _, param := range sortParams {
+		parts := strings.Split(param, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		field, order := parts[0], parts[1]
+		if allowedFields[field] == "" || (order != "asc" && order != "desc") {
+			continue
+		}
+		sorts = append(sorts, SortOption{Field: field, Order: order})
+	}
+	return sorts
 }
 
 // ListTeachers retrieves teachers applying optional filters and sort order.

@@ -6,7 +6,7 @@ import (
 )
 
 func RootHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := w.Write([]byte("Hello Root Route"))
+	_, err := w.Write([]byte("Welcome to School API"))
 	if err != nil {
 		log.Fatal("Error writing to server:", err)
 	}
