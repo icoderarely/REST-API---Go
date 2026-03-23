@@ -17,7 +17,7 @@ func registerExecsRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /execs/{id}/updatepassword", notImplementedHandler)
 
 	mux.HandleFunc("POST /execs/login", handlers.LoginHandler)
-	mux.HandleFunc("POST /execs/logout", notImplementedHandler)
+	mux.HandleFunc("POST /execs/logout", handlers.LogoutHandler)
 	mux.HandleFunc("POST /execs/forgotpassword", notImplementedHandler)
 	mux.HandleFunc("POST /execs/resetpassword/reset/{resetcode}", notImplementedHandler)
 }

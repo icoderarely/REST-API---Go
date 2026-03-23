@@ -272,3 +272,19 @@ func getExecFieldIndex() map[string]int {
 	})
 	return execFieldIndex
 }
+
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	// clear jwt token, blacklist of invalidated jwt
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Bearer",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Unix(0, 0),
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"message": "Logged out"}`))
+}
