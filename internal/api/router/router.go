@@ -15,8 +15,5 @@ func Router() *http.ServeMux {
 	registerStudentRoutes(mux)
 	registerExecsRoutes(mux)
 
-	// Executives handler
-	mux.HandleFunc("/execs/", handlers.ExecsHandler)
-
 	return mux
 }
