@@ -4,11 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"restapi/internal/models"
 	"restapi/internal/repository/sqlconnect"
+	"restapi/pkg/utils"
 )
+
+var errInvalidExecID = errors.New("invalid exec id")
 
 func GetExecsHandler(w http.ResponseWriter, _ *http.Request) {
 	execs, err := sqlconnect.ListExecs()
@@ -110,19 +117,15 @@ func writeExecCollection(w http.ResponseWriter, execs []models.Exec) {
 	})
 }
 
-func loadExecFromRequest(r *http.Request) (*models.Exec, error) {
-	id, err := parseExecID(r)
-	if err != nil {
-		return nil, err
-	}
-	return sqlconnect.GetExecByID(id)
-}
-
 func parseExecID(r *http.Request) (int, error) {
 	return strconv.Atoi(r.PathValue("id"))
 }
 
 func writeExecError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errInvalidExecID) {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
 	if errors.Is(err, sqlconnect.ErrExecNotFound) {
 		http.Error(w, "Exec not found", http.StatusNotFound)
 		return
@@ -130,33 +133,142 @@ func writeExecError(w http.ResponseWriter, err error) {
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
+func writeInvalidLoginError(w http.ResponseWriter) {
+	http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+}
+
+func loadExecFromRequest(r *http.Request) (*models.Exec, error) {
+	id, err := parseExecID(r)
+	if err != nil {
+		return nil, errInvalidExecID
+	}
+
+	exec, err := sqlconnect.GetExecByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return exec, nil
+}
+
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	var req models.Exec
+	// data validation
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid req body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "Username & password required", http.StatusBadRequest)
+		return
+	}
+
+	user, err := sqlconnect.GetExecByUsername(req.Username)
+	if err != nil {
+		if errors.Is(err, sqlconnect.ErrExecNotFound) {
+			writeInvalidLoginError(w)
+			return
+		}
+		http.Error(w, "Unable to process login", http.StatusInternalServerError)
+		return
+	}
+
+	// is user active
+	if user.InactiveStatus.Valid && user.InactiveStatus.Bool {
+		http.Error(w, "Account is inactive", http.StatusForbidden)
+		return
+	}
+
+	if err := utils.VerifyPassword(req.Password, user.Password); err != nil {
+		switch {
+		case errors.Is(err, utils.ErrPasswordMismatch):
+			writeInvalidLoginError(w)
+		case errors.Is(err, utils.ErrInvalidPasswordEncoding):
+			http.Error(w, "Unable to process login", http.StatusInternalServerError)
+		default:
+			http.Error(w, "Unable to process login", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// generate jwt token
+	tokenString, err := utils.SignToken(user.ID, req.Username, user.Role)
+	if err != nil {
+		http.Error(w, "Could not create token", http.StatusInternalServerError)
+		return
+	}
+
+	// set cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Bearer",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Now().Add(24 * time.Hour),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+		Token   string `json:"token"`
+	}{
+		Status:  "success",
+		Message: "Login verified",
+		Token:   tokenString,
+	})
+}
+
+var (
+	execFieldIndexOnce sync.Once
+	execFieldIndex     map[string]int
+)
+
 func applyExecUpdates(exec *models.Exec, updates map[string]interface{}) {
-	for field, value := range updates {
-		switch field {
-		case "first_name":
-			if v, ok := value.(string); ok {
-				exec.FirstName = v
-			}
-		case "last_name":
-			if v, ok := value.(string); ok {
-				exec.LastName = v
-			}
-		case "email":
-			if v, ok := value.(string); ok {
-				exec.Email = v
-			}
-		case "username":
-			if v, ok := value.(string); ok {
-				exec.Username = v
-			}
-		case "password":
-			if v, ok := value.(string); ok {
-				exec.Password = v
-			}
-		case "role":
-			if v, ok := value.(string); ok {
-				exec.Role = v
+	if exec == nil || len(updates) == 0 {
+		return
+	}
+
+	fieldIndex := getExecFieldIndex()
+	value := reflect.ValueOf(exec).Elem()
+	for field, raw := range updates {
+		idx, ok := fieldIndex[field]
+		if !ok {
+			continue
+		}
+		structField := value.Field(idx)
+		if !structField.CanSet() {
+			continue
+		}
+
+		switch structField.Kind() {
+		case reflect.String:
+			if v, ok := raw.(string); ok {
+				structField.SetString(v)
 			}
 		}
 	}
+}
+
+func getExecFieldIndex() map[string]int {
+	execFieldIndexOnce.Do(func() {
+		typ := reflect.TypeOf(models.Exec{})
+		execFieldIndex = make(map[string]int, typ.NumField())
+		for i := 0; i < typ.NumField(); i++ {
+			field := typ.Field(i)
+			jsonTag := field.Tag.Get("json")
+			if jsonTag == "-" {
+				continue
+			}
+			name := strings.Split(jsonTag, ",")[0]
+			if name == "" {
+				name = field.Name
+			}
+			execFieldIndex[name] = i
+		}
+	})
+	return execFieldIndex
 }

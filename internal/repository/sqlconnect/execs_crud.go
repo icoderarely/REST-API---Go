@@ -8,7 +8,10 @@ import (
 	"restapi/pkg/utils"
 )
 
-var ErrExecNotFound = errors.New("exec not found")
+var (
+	ErrExecNotFound      = errors.New("exec not found")
+	ErrExecPasswordEmpty = errors.New("exec password must not be empty")
+)
 
 func ListExecs() ([]models.Exec, error) {
 	db, err := ConnectDB()
@@ -46,8 +49,11 @@ func GetExecByID(id int) (*models.Exec, error) {
 	defer db.Close()
 
 	var exec models.Exec
-	err = db.QueryRow("SELECT id, first_name, last_name, email, username, role FROM execs WHERE id = ?", id).
-		Scan(&exec.ID, &exec.FirstName, &exec.LastName, &exec.Email, &exec.Username, &exec.Role)
+	err = db.QueryRow(
+		"SELECT id, first_name, last_name, email, username, password, role FROM execs WHERE id = ?",
+		id,
+	).
+		Scan(&exec.ID, &exec.FirstName, &exec.LastName, &exec.Email, &exec.Username, &exec.Password, &exec.Role)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrExecNotFound
 	}
@@ -77,6 +83,15 @@ func InsertExecs(execs []models.Exec) ([]models.Exec, error) {
 
 	inserted := make([]models.Exec, 0, len(execs))
 	for _, exec := range execs {
+		hashedPassword, err := utils.HashPassword(exec.Password)
+		if err != nil {
+			if errors.Is(err, utils.ErrPasswordEmpty) {
+				return nil, ErrExecPasswordEmpty
+			}
+			return nil, err
+		}
+		exec.Password = hashedPassword
+
 		result, err := stmt.Exec(exec.FirstName, exec.LastName, exec.Email, exec.Username, exec.Password, exec.Role)
 		if err != nil {
 			return nil, utils.ErrorHandler(err, "unable to insert exec")
@@ -99,9 +114,28 @@ func UpdateExec(exec models.Exec) error {
 	}
 	defer db.Close()
 
+	passwordValue := exec.Password
+	if passwordValue != "" {
+		passwordValue, err = utils.HashPassword(passwordValue)
+		if err != nil {
+			if errors.Is(err, utils.ErrPasswordEmpty) {
+				return ErrExecPasswordEmpty
+			}
+			return err
+		}
+	} else {
+		passwordValue, err = fetchExecPassword(db, exec.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrExecNotFound
+			}
+			return utils.ErrorHandler(err, "unable to load existing exec password")
+		}
+	}
+
 	result, err := db.Exec(
 		"UPDATE execs SET first_name = ?, last_name = ?, email = ?, username = ?, password = ?, role = ? WHERE id = ?",
-		exec.FirstName, exec.LastName, exec.Email, exec.Username, exec.Password, exec.Role, exec.ID,
+		exec.FirstName, exec.LastName, exec.Email, exec.Username, passwordValue, exec.Role, exec.ID,
 	)
 	if err != nil {
 		return utils.ErrorHandler(err, "unable to update exec")
@@ -138,3 +172,34 @@ func DeleteExec(id int) error {
 }
 
 type ExecStore struct{}
+
+func fetchExecPassword(db *sql.DB, id int) (string, error) {
+	var password string
+	err := db.QueryRow("SELECT password FROM execs WHERE id = ?", id).Scan(&password)
+	if err != nil {
+		return "", err
+	}
+	return password, nil
+}
+
+func GetExecByUsername(username string) (*models.Exec, error) {
+	db, err := ConnectDB()
+	if err != nil {
+		return nil, utils.ErrorHandler(err, "unable to connect retrieving exec by username to database")
+	}
+	defer db.Close()
+
+	var exec models.Exec
+	err = db.QueryRow(
+		"SELECT id, first_name, last_name, email, username, password, inactive_status, role FROM execs WHERE username = ?",
+		username,
+	).
+		Scan(&exec.ID, &exec.FirstName, &exec.LastName, &exec.Email, &exec.Username, &exec.Password, &exec.InactiveStatus, &exec.Role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrExecNotFound
+	}
+	if err != nil {
+		return nil, utils.ErrorHandler(err, "unable to scan exec by username")
+	}
+	return &exec, nil
+}
